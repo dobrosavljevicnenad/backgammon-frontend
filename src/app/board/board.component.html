@@ -1,0 +1,311 @@
+<div class="toolbar">
+  <div class="status">{{ status() }}</div>
+  <div class="actions">
+    <button type="button" (click)="newGame()" [disabled]="busy()">Nova partija</button>
+    <button type="button" (click)="playDemo()" [disabled]="busy()">Demo poteza</button>
+    <button type="button" (click)="onRollClick()" [disabled]="busy()">Baci kockice</button>
+    <button type="button" class="icon" (click)="sound.toggle()" [attr.aria-label]="sound.enabled() ? 'Isključi zvuk' : 'Uključi zvuk'">
+      {{ sound.enabled() ? '🔊' : '🔇' }}
+    </button>
+  </div>
+</div>
+
+<svg
+  #svg
+  class="board"
+  [attr.viewBox]="'0 0 ' + W + ' ' + H"
+  (pointerdown)="onBoardDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerUp($event)"
+>
+  <defs>
+    <!-- drvo -->
+    <linearGradient id="woodBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b3b1f" />
+      <stop offset="0.5" stop-color="#5a2f17" />
+      <stop offset="1" stop-color="#3f200f" />
+    </linearGradient>
+    <filter id="woodGrain" filterUnits="userSpaceOnUse" x="0" y="0" [attr.width]="W" [attr.height]="H">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0035 0.11" numOctaves="4" seed="7" result="n" />
+      <feColorMatrix
+        in="n"
+        type="matrix"
+        values="0 0 0 0 0.10
+                0 0 0 0 0.05
+                0 0 0 0 0.02
+                2.4 0 0 0 -0.95"
+      />
+      <feComposite in2="SourceGraphic" operator="in" />
+    </filter>
+    <filter id="frameShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.65" />
+    </filter>
+    <linearGradient id="frameSheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16" />
+      <stop offset="0.04" stop-color="#fff" stop-opacity="0" />
+      <stop offset="0.96" stop-color="#000" stop-opacity="0" />
+      <stop offset="1" stop-color="#000" stop-opacity="0.3" />
+    </linearGradient>
+
+    <!-- čoja -->
+    <radialGradient id="felt" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#22603f" />
+      <stop offset="1" stop-color="#103322" />
+    </radialGradient>
+    <filter id="feltNoise" filterUnits="userSpaceOnUse" x="0" y="0" [attr.width]="W" [attr.height]="H">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="2" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.9 -0.35" />
+      <feComposite in2="SourceGraphic" operator="in" />
+    </filter>
+
+    <!-- polja -->
+    <linearGradient id="pointLightBottom" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#efe1bf" />
+      <stop offset="1" stop-color="#cdb487" />
+    </linearGradient>
+    <linearGradient id="pointLightTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efe1bf" />
+      <stop offset="1" stop-color="#cdb487" />
+    </linearGradient>
+    <linearGradient id="pointDarkBottom" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#9a2d2a" />
+      <stop offset="1" stop-color="#5c1514" />
+    </linearGradient>
+    <linearGradient id="pointDarkTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a2d2a" />
+      <stop offset="1" stop-color="#5c1514" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b" />
+      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+
+    <!-- kružići -->
+    <radialGradient id="shadowGrad">
+      <stop offset="0" stop-color="#000" stop-opacity="0.75" />
+      <stop offset="0.6" stop-color="#000" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#000" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="whiteBody" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#fffdf6" />
+      <stop offset="0.65" stop-color="#ece2cc" />
+      <stop offset="1" stop-color="#bdae8d" />
+    </radialGradient>
+    <radialGradient id="whiteInner" cx="0.6" cy="0.65" r="0.8">
+      <stop offset="0" stop-color="#fffaf0" />
+      <stop offset="1" stop-color="#ddd0b2" />
+    </radialGradient>
+    <radialGradient id="blackBody" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#4a4a4f" />
+      <stop offset="0.65" stop-color="#1d1d21" />
+      <stop offset="1" stop-color="#050506" />
+    </radialGradient>
+    <radialGradient id="blackInner" cx="0.6" cy="0.65" r="0.8">
+      <stop offset="0" stop-color="#2c2c31" />
+      <stop offset="1" stop-color="#121214" />
+    </radialGradient>
+    <linearGradient id="whiteSlab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffaf0" />
+      <stop offset="1" stop-color="#bfae8a" />
+    </linearGradient>
+    <linearGradient id="blackSlab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4a50" />
+      <stop offset="1" stop-color="#0b0b0d" />
+    </linearGradient>
+
+    <g id="disc-white">
+      <circle [attr.r]="G.r" fill="url(#whiteBody)" />
+      <circle [attr.r]="G.r - 0.8" fill="none" stroke="#8f8164" stroke-width="1.6" />
+      <circle [attr.r]="G.r * 0.7" fill="url(#whiteInner)" stroke="#b9aa88" stroke-width="1.4" />
+      <circle [attr.r]="G.r * 0.7 - 1.6" fill="none" stroke="#fff" stroke-opacity="0.7" stroke-width="1" />
+      <circle [attr.r]="G.r * 0.32" fill="none" stroke="#cbbd9c" stroke-width="1" />
+      <ellipse cx="-9" cy="-12" rx="13" ry="7" fill="#fff" opacity="0.55" transform="rotate(-30 -9 -12)" />
+    </g>
+    <g id="disc-black">
+      <circle [attr.r]="G.r" fill="url(#blackBody)" />
+      <circle [attr.r]="G.r - 0.8" fill="none" stroke="#000" stroke-width="1.6" />
+      <circle [attr.r]="G.r * 0.7" fill="url(#blackInner)" stroke="#000" stroke-opacity="0.8" stroke-width="1.4" />
+      <circle [attr.r]="G.r * 0.7 - 1.6" fill="none" stroke="#6a6a72" stroke-opacity="0.5" stroke-width="1" />
+      <circle [attr.r]="G.r * 0.32" fill="none" stroke="#3a3a40" stroke-width="1" />
+      <ellipse cx="-9" cy="-12" rx="13" ry="7" fill="#fff" opacity="0.16" transform="rotate(-30 -9 -12)" />
+    </g>
+
+    <!-- kockice -->
+    <linearGradient id="dieWhite" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#d9d2c2" />
+    </linearGradient>
+    <linearGradient id="dieBlack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b3b40" />
+      <stop offset="1" stop-color="#0d0d10" />
+    </linearGradient>
+  </defs>
+
+  <!-- ===== čoja (dve polovine) ===== -->
+  <rect [attr.x]="LEFT_X" [attr.y]="TOP_Y" [attr.width]="HALF_W" [attr.height]="PLAY_H" fill="url(#felt)" />
+  <rect [attr.x]="RIGHT_X" [attr.y]="TOP_Y" [attr.width]="HALF_W" [attr.height]="PLAY_H" fill="url(#felt)" />
+  <g filter="url(#feltNoise)" opacity="0.5">
+    <rect [attr.x]="LEFT_X" [attr.y]="TOP_Y" [attr.width]="HALF_W" [attr.height]="PLAY_H" fill="#000" />
+    <rect [attr.x]="RIGHT_X" [attr.y]="TOP_Y" [attr.width]="HALF_W" [attr.height]="PLAY_H" fill="#000" />
+  </g>
+
+  <!-- ===== polja (trouglovi) ===== -->
+  @for (p of pointList; track p) {
+    <path
+      [attr.d]="trianglePath(p)"
+      [attr.fill]="
+        p % 2 === 0
+          ? isTop(p) ? 'url(#pointLightTop)' : 'url(#pointLightBottom)'
+          : isTop(p) ? 'url(#pointDarkTop)' : 'url(#pointDarkBottom)'
+      "
+      stroke="#000"
+      stroke-opacity="0.25"
+      stroke-width="1"
+    />
+  }
+
+  <!-- istaknuta polja na koja može da se ide -->
+  @for (t of targetPoints(); track t.index) {
+    <path class="target" [attr.d]="t.path" filter="url(#glow)" />
+    <circle class="ghost" [attr.cx]="t.gx" [attr.cy]="t.gy" [attr.r]="G.r - 1" />
+  }
+
+  <!-- ===== kutija za izbačene ===== -->
+  <rect [attr.x]="TRAY_X" [attr.y]="TOP_Y" [attr.width]="G.trayW" [attr.height]="PLAY_H" fill="#1b0e06" />
+  <rect
+    [attr.x]="TRAY_X + 4"
+    [attr.y]="TOP_Y + 4"
+    [attr.width]="G.trayW - 8"
+    [attr.height]="PLAY_H - 8"
+    rx="3"
+    fill="url(#felt)"
+    opacity="0.55"
+  />
+  @if (offTarget(); as oc) {
+    <rect
+      class="tray-target"
+      [attr.x]="TRAY_X + 4"
+      [attr.y]="oc === 'white' ? MID_Y + 12 : TOP_Y + 4"
+      [attr.width]="G.trayW - 8"
+      [attr.height]="PLAY_H / 2 - 16"
+      rx="4"
+      filter="url(#glow)"
+    />
+  }
+
+  <!-- ===== drveni ram (preko čoje, baca senku unutra) ===== -->
+  <g filter="url(#frameShadow)">
+    <path [attr.d]="framePath" fill="url(#woodBase)" fill-rule="evenodd" />
+  </g>
+  <path [attr.d]="framePath" fill="#000" fill-rule="evenodd" filter="url(#woodGrain)" opacity="0.85" />
+  <path [attr.d]="framePath" fill="url(#frameSheen)" fill-rule="evenodd" />
+  <!-- pregrada u kutiji -->
+  <rect [attr.x]="TRAY_X" [attr.y]="MID_Y - 8" [attr.width]="G.trayW" height="16" fill="url(#woodBase)" />
+  <rect [attr.x]="TRAY_X" [attr.y]="MID_Y - 8" [attr.width]="G.trayW" height="16" fill="#000" filter="url(#woodGrain)" opacity="0.85" />
+  <!-- ivice bara -->
+  <line [attr.x1]="BAR_X + 3" [attr.x2]="BAR_X + 3" [attr.y1]="TOP_Y" [attr.y2]="BOTTOM_Y" stroke="#fff" stroke-opacity="0.08" stroke-width="2" />
+  <line [attr.x1]="BAR_X + G.barW - 3" [attr.x2]="BAR_X + G.barW - 3" [attr.y1]="TOP_Y" [attr.y2]="BOTTOM_Y" stroke="#000" stroke-opacity="0.35" stroke-width="2" />
+  <line [attr.x1]="BAR_CX" [attr.x2]="BAR_CX" [attr.y1]="0" [attr.y2]="H" stroke="#000" stroke-opacity="0.45" stroke-width="1.5" />
+  <!-- šarke -->
+  @for (hy of [TOP_Y + 110, BOTTOM_Y - 150]; track hy) {
+    <g [attr.transform]="'translate(' + (BAR_CX - 9) + ',' + hy + ')'">
+      <rect width="18" height="40" rx="2" fill="#b8913f" />
+      <rect width="18" height="40" rx="2" fill="none" stroke="#5a4113" stroke-width="1" />
+      <line x1="9" x2="9" y1="0" y2="40" stroke="#5a4113" stroke-width="1.2" />
+      <circle cx="4.5" cy="7" r="1.6" fill="#5a4113" />
+      <circle cx="13.5" cy="33" r="1.6" fill="#5a4113" />
+    </g>
+  }
+
+  <!-- brojevi polja na ramu -->
+  @for (p of pointList; track p) {
+    <text
+      class="num"
+      [attr.x]="pointX(p)"
+      [attr.y]="isTop(p) ? TOP_Y - 9 : BOTTOM_Y + 19"
+      text-anchor="middle"
+    >{{ p }}</text>
+  }
+
+  <!-- ===== kockice ===== -->
+  @for (d of dice(); track $index) {
+    <g [attr.transform]="'translate(' + d.x + ',' + d.y + ')'" class="die">
+      <ellipse
+        [attr.cx]="4 + d.lift * 26"
+        [attr.cy]="6 + d.lift * 32"
+        [attr.rx]="29 + d.lift * 6"
+        [attr.ry]="29 + d.lift * 6"
+        fill="url(#shadowGrad)"
+        [attr.opacity]="0.75 - d.lift * 0.35"
+      />
+      <g [attr.transform]="'rotate(' + d.rot + ') scale(' + (1 + d.lift * 0.3) + ')'">
+        <rect
+          x="-23"
+          y="-23"
+          width="46"
+          height="46"
+          rx="9"
+          [attr.fill]="d.color === 'black' ? 'url(#dieBlack)' : 'url(#dieWhite)'"
+          [attr.stroke]="d.color === 'black' ? '#000' : '#a89f8c'"
+          stroke-width="1.2"
+        />
+        @for (pp of pips[d.value]; track $index) {
+          <circle
+            [attr.cx]="pipX(pp[0])"
+            [attr.cy]="pipX(pp[1])"
+            r="4.4"
+            [attr.fill]="d.color === 'black' ? '#f3ede0' : '#1c1c1f'"
+          />
+        }
+      </g>
+    </g>
+  }
+
+  <!-- ===== kružići ===== -->
+  @for (c of rendered(); track c.id) {
+    <g
+      class="checker"
+      [class.flying]="c.flying"
+      [class.movable]="!busy()"
+      [style.transform]="'translate(' + c.x + 'px,' + c.y + 'px)'"
+      (pointerdown)="onCheckerDown($event, c.id)"
+    >
+      @if (c.slab) {
+        <g class="slab">
+          <rect x="-32" [attr.y]="-G.slabH / 2 + 2" width="64" [attr.height]="G.slabH" rx="5" fill="#000" opacity="0.45" />
+          <rect
+            x="-32"
+            [attr.y]="-G.slabH / 2"
+            width="64"
+            [attr.height]="G.slabH"
+            rx="5"
+            [attr.fill]="c.color === 'white' ? 'url(#whiteSlab)' : 'url(#blackSlab)'"
+            [attr.stroke]="c.color === 'white' ? '#8f8164' : '#000'"
+          />
+          <line x1="-26" x2="26" [attr.y1]="-G.slabH / 2 + 3" [attr.y2]="-G.slabH / 2 + 3" stroke="#fff" [attr.stroke-opacity]="c.color === 'white' ? 0.8 : 0.15" />
+        </g>
+      } @else {
+        <ellipse
+          [attr.cx]="3 + c.lift * 12"
+          [attr.cy]="5 + c.lift * 18"
+          [attr.rx]="G.r + 3 + c.lift * 6"
+          [attr.ry]="G.r + 3 + c.lift * 6"
+          fill="url(#shadowGrad)"
+          [attr.opacity]="0.7 - c.lift * 0.3"
+        />
+        <g [attr.transform]="'scale(' + (1 + c.lift * 0.13) * c.squash + ')'">
+          <use [attr.href]="c.color === 'white' ? '#disc-white' : '#disc-black'" />
+          @if (c.selected) {
+            <circle class="sel-ring" [attr.r]="G.r + 4" />
+          }
+        </g>
+      }
+    </g>
+  }
+</svg>
+
+<p class="hint">
+  Beli ide 24 → 1, crni 1 → 24. Za sada je „slobodan” režim: poštuje se smer i blokade (2+ protivnička kružića),
+  pogađanje usamljenog kružića šalje ga na bar. Pravila sa kockicama dolaze u sledećem koraku.
+</p>
