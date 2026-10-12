@@ -1,0 +1,51 @@
+<div class="auth-page">
+
+  <h1 class="title">BACKGAMMON</h1>
+
+  <div class="auth-card">
+
+    <h2>Create Account</h2>
+
+   <input
+  type="text"
+  placeholder="Username"
+  [(ngModel)]="username"
+  name="username"
+/>
+
+<input
+  type="email"
+  placeholder="Email"
+  [(ngModel)]="email"
+  name="email"
+/>
+
+<input
+  type="password"
+  placeholder="Password"
+  [(ngModel)]="password"
+  name="password"
+/>
+
+<input
+  type="password"
+  placeholder="Confirm Password"
+  [(ngModel)]="confirmPassword"
+  name="confirmPassword"
+/>
+@if(errorMessage){
+  <p class="error">
+    {{ errorMessage }}
+  </p>
+}
+<button (click)="register()">
+  Register
+</button>
+
+    <a routerLink="/login">
+      Already have an account?
+    </a>
+
+  </div>
+
+</div>
