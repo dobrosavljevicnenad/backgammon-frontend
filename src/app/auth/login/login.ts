@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { Router, RouterLink } from '@angular/router';
 import { LoginRequest } from '../../models/login-request';
 
 @Component({
@@ -17,7 +17,7 @@ export class Login {
   password = '';
   errorMessage = '';
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private router: Router) {}
 
   login(): void {
 if (!this.username || !this.password) {
@@ -25,12 +25,13 @@ if (!this.username || !this.password) {
   return;
 }
  this.errorMessage = '';
- 
+
     const request: LoginRequest = {
       username: this.username,
       password: this.password
     };
 
     this.authService.login(request);
+this.router.navigate(['/lobby']);
   }
 }

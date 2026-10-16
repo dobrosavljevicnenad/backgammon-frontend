@@ -1,0 +1,56 @@
+<div class="lobby-page">
+
+  <h1 class="title">BACKGAMMON</h1>
+
+  <div class="lobby-card">
+
+    <h2>Lobby</h2>
+
+    <div class="menu">
+
+     <button (click)="openCreateGame()">
+  Create Game
+</button>
+
+      <button>
+        Join Game
+      </button>
+
+      <button>
+        Profile
+      </button>
+@if(showCreateGame){
+
+<div class="modal-overlay">
+
+  <div class="modal">
+
+    <h3>Create New Game</h3>
+
+    <input
+      type="text"
+      placeholder="Room name"
+      [(ngModel)]="roomName"
+    />
+
+    <button (click)="createRoom()">
+      Create
+    </button>
+
+    <button
+      class="cancel-btn"
+      (click)="closeCreateGame()">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+}
+
+    </div>
+
+  </div>
+
+</div>

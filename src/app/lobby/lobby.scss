@@ -1,0 +1,185 @@
+.lobby-page {
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  background:
+    linear-gradient(
+      rgba(35, 18, 10, 0.80),
+      rgba(35, 18, 10, 0.80)
+    ),
+    url('/images/backgammon-bg.png');
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.title {
+  color: #d7b466;
+  font-size: 64px;
+  letter-spacing: 6px;
+  margin-bottom: 25px;
+
+  text-shadow:
+    0 0 8px rgba(215, 180, 102, 0.4),
+    0 0 20px rgba(215, 180, 102, 0.3);
+}
+
+.lobby-card {
+  width: 420px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  padding: 35px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #8a5427,
+      #6d3f1c
+    );
+
+  border: 4px solid #d7b466;
+  border-radius: 18px;
+
+  box-shadow:
+    0 0 25px rgba(0,0,0,0.6),
+    inset 0 0 10px rgba(255,255,255,0.1);
+
+  animation: showCard .6s ease;
+}
+
+.lobby-card h2 {
+  color: #f8df9c;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+button {
+  padding: 14px;
+
+  border: none;
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      to bottom,
+      #f2cf80,
+      #c99731
+    );
+
+  color: #2b1204;
+
+  font-size: 16px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  transition: all .25s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 5px 15px rgba(0,0,0,0.3);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+@keyframes showCard {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  background: rgba(0,0,0,0.65);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 1000;
+}
+
+.modal {
+  width: 400px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  padding: 30px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #8a5427,
+      #6d3f1c
+    );
+
+  border: 3px solid #d7b466;
+  border-radius: 18px;
+
+  box-shadow:
+    0 15px 40px rgba(0,0,0,.5);
+
+  animation: popup .2s ease;
+}
+
+.modal h3 {
+  color: #f8df9c;
+  text-align: center;
+}
+
+.modal input {
+  padding: 12px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #f6ebd0;
+}
+
+.cancel-btn {
+  background:
+    linear-gradient(
+      to bottom,
+      #b66a5a,
+      #92483d
+    );
+}
+@keyframes popup {
+  from {
+    opacity: 0;
+    transform: scale(.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
