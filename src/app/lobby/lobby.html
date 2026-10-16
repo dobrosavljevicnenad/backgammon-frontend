@@ -1,10 +1,22 @@
-<div class="lobby-page">
+<div class="user-info">
+  <span class="label">Welcome, </span>
+  <span class="username">{{ username() }}</span>
+</div>
 
+<div class="lobby-page">
+<button class="logout-btn" (click)="logout()">
+  Logout
+</button>
   <h1 class="title">BACKGAMMON</h1>
 
   <div class="lobby-card">
 
     <h2>Lobby</h2>
+
+   <div class="user-bar">
+
+
+</div>
 
     <div class="menu">
 

@@ -2,8 +2,12 @@
   min-height: 100vh;
 
   display: flex;
+  flex-direction: column;
+
   justify-content: center;
   align-items: center;
+
+  gap: 32px;
 
   background:
     linear-gradient(
@@ -16,6 +20,7 @@
   background-position: center;
   background-repeat: no-repeat;
 }
+
 
 .auth-card {
   width: 520px;
@@ -39,16 +44,14 @@
 }
 
 .title {
-  position: absolute;
-
-  top: 60px;
-
   color: #f6e2a4;
 
   font-size: 64px;
   font-weight: 700;
 
   letter-spacing: 6px;
+
+  margin: 0;
 
   text-shadow:
     0 0 15px rgba(0,0,0,0.7),
@@ -161,4 +164,10 @@ button:disabled {
   cursor: default;
   transform: none;
   box-shadow: none;
+}
+.invalid {
+  border: 2px solid #d9534f !important;
+
+  box-shadow:
+    0 0 10px rgba(255, 62, 55, 0.4);
 }

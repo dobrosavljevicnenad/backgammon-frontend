@@ -14,13 +14,13 @@
       name="username"
     />
 
-    <input
-      type="email"
-      placeholder="Email"
-      autocomplete="email"
-      [(ngModel)]="email"
-      name="email"
-    />
+<input
+  type="email"
+  placeholder="Email"
+  [(ngModel)]="email"
+  name="email"
+  [class.invalid]="email && !isEmailValid()"
+/>
 
     <input
       type="password"
@@ -30,13 +30,14 @@
       name="password"
     />
 
-    <input
-      type="password"
-      placeholder="Confirm Password"
-      autocomplete="new-password"
-      [(ngModel)]="confirmPassword"
-      name="confirmPassword"
-    />
+  <input
+  type="password"
+  placeholder="Confirm Password"
+  autocomplete="new-password"
+  [(ngModel)]="confirmPassword"
+  name="confirmPassword"
+  [class.invalid]="confirmPassword && password !== confirmPassword"
+/>
 
     @if (errorMessage()) {
       <p class="error">

@@ -25,6 +25,10 @@ export class Register {
   readonly errorMessage = signal('');
   readonly loading = signal(false);
 
+
+isEmailValid(): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email);
+}
   register(): void {
     if (
       !this.username ||

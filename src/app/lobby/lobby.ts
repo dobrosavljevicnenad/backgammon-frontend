@@ -1,6 +1,9 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../services/auth.service';
+import { inject } from '@angular/core';
+
 @Component({
   selector: 'app-lobby',
   standalone: true,
@@ -9,6 +12,9 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './lobby.scss'
 })
 export class Lobby {
+   private readonly authService = inject(AuthService);
+
+  readonly username = this.authService.username;
 showCreateGame=false;
 roomName='';
   constructor(private router: Router) {}
@@ -31,5 +37,10 @@ createRoom(): void {
   console.log('Game name:', this.roomName);
 
   this.router.navigate(['/board']);
+}
+
+logout(): void {
+  this.authService.logout();
+  void this.router.navigate(['/login']);
 }
 }
