@@ -2,36 +2,46 @@
 
   <h1 class="title">BACKGAMMON</h1>
 
-  <div class="auth-card">
+  <form class="auth-card" (ngSubmit)="login()">
 
     <h2>Login</h2>
 
- <input
-  type="text"
-  placeholder="Username"
-  [(ngModel)]="username"
-  name="username"
-/>
+    @if (registered && !errorMessage()) {
+      <p class="success">
+        Account created. You can log in now.
+      </p>
+    }
 
-<input
-  type="password"
-  placeholder="Password"
-  [(ngModel)]="password"
-  name="password"
-/>
-@if(errorMessage){
-  <p class="error">
-    {{ errorMessage }}
-  </p>
-}
-                <button (click)="login()">
-                Login
-                </button>
+    <input
+      type="email"
+      placeholder="Email"
+      autocomplete="email"
+      [(ngModel)]="email"
+      name="email"
+    />
+
+    <input
+      type="password"
+      placeholder="Password"
+      autocomplete="current-password"
+      [(ngModel)]="password"
+      name="password"
+    />
+
+    @if (errorMessage()) {
+      <p class="error">
+        {{ errorMessage() }}
+      </p>
+    }
+
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Logging in...' : 'Login' }}
+    </button>
 
     <a routerLink="/register">
       Don't have an account? Register
     </a>
 
-  </div>
+  </form>
 
 </div>

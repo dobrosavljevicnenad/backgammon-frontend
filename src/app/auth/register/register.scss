@@ -120,3 +120,13 @@ a {
   text-align: center;
   font-size: 14px;
 }
+.error {
+  white-space: pre-line;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}

@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { LoginRequest } from '../../models/login-request';
+import { apiErrorMessage } from '../api-error';
 
 @Component({
   selector: 'app-login',
@@ -13,24 +15,37 @@ import { LoginRequest } from '../../models/login-request';
 })
 export class Login {
 
-  username = '';
-  password = '';
-  errorMessage = '';
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  constructor(private authService: AuthService) {}
+  email = '';
+  password = '';
+  readonly errorMessage = signal('');
+  readonly loading = signal(false);
+  readonly registered = inject(ActivatedRoute).snapshot.queryParamMap.has('registered');
 
   login(): void {
-if (!this.username || !this.password) {
-  this.errorMessage = 'Username and password are required.';
-  return;
-}
- this.errorMessage = '';
- 
+    if (!this.email || !this.password) {
+      this.errorMessage.set('Email and password are required.');
+      return;
+    }
+    this.errorMessage.set('');
+    this.loading.set(true);
+
     const request: LoginRequest = {
-      username: this.username,
+      email: this.email,
       password: this.password
     };
 
-    this.authService.login(request);
+    this.authService.login(request).subscribe({
+      next: () => {
+        // TODO: switch to /lobby once the lobby page exists
+        void this.router.navigate(['/board']);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.loading.set(false);
+        this.errorMessage.set(apiErrorMessage(error, 'Login failed.'));
+      }
+    });
   }
 }

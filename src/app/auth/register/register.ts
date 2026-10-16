@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { RegisterRequest } from '../../models/register-request';
+import { apiErrorMessage } from '../api-error';
 
 @Component({
   selector: 'app-register',
@@ -13,35 +15,47 @@ import { RegisterRequest } from '../../models/register-request';
 })
 export class Register {
 
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
   username = '';
   email = '';
   password = '';
   confirmPassword = '';
-  errorMessage = '';
-
-  constructor(private authService: AuthService) {}
+  readonly errorMessage = signal('');
+  readonly loading = signal(false);
 
   register(): void {
-if (
-  !this.username ||
-  !this.email ||
-  !this.password ||
-  !this.confirmPassword
-) {
-  this.errorMessage = 'All fields are required.';
-  return;
-}
-if (this.password !== this.confirmPassword) {
-  this.errorMessage = 'Passwords do not match.';
-  return;
-}
-this.errorMessage = '';
+    if (
+      !this.username ||
+      !this.email ||
+      !this.password ||
+      !this.confirmPassword
+    ) {
+      this.errorMessage.set('All fields are required.');
+      return;
+    }
+    if (this.password !== this.confirmPassword) {
+      this.errorMessage.set('Passwords do not match.');
+      return;
+    }
+    this.errorMessage.set('');
+    this.loading.set(true);
+
     const request: RegisterRequest = {
       username: this.username,
       email: this.email,
       password: this.password
     };
 
-    this.authService.register(request);
+    this.authService.register(request).subscribe({
+      next: () => {
+        void this.router.navigate(['/login'], { queryParams: { registered: 1 } });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.loading.set(false);
+        this.errorMessage.set(apiErrorMessage(error, 'Registration failed.'));
+      }
+    });
   }
 }
