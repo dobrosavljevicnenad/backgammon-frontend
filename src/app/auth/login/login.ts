@@ -39,8 +39,7 @@ export class Login {
 
     this.authService.login(request).subscribe({
       next: () => {
-        // TODO: switch to /lobby once the lobby page exists
-        void this.router.navigate(['/board']);
+        void this.router.navigate(['/lobby']);
       },
       error: (error: HttpErrorResponse) => {
         this.loading.set(false);
