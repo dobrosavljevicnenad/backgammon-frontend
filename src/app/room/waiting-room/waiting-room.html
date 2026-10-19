@@ -1,0 +1,41 @@
+<div class="lobby-page">
+
+  <button class="logout-btn" type="button" (click)="leave()" [disabled]="busy()">Leave room</button>
+
+  <h1 class="title">WAITING ROOM</h1>
+
+  <div class="lobby-card">
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+
+    @if (room(); as current) {
+      <div class="label">Room</div>
+      <p>{{ current.name }} ({{ players().length }}/2 players)</p>
+    }
+
+    <div class="label">Players</div>
+
+    @for (player of players(); track player.userId) {
+      <div>
+        {{ player.username }}
+        @if (player.host) {
+          <span>(host)</span>
+        }
+      </div>
+    } @empty {
+      <p>No players yet.</p>
+    }
+
+    @if (canStart()) {
+      <button type="button" [disabled]="busy()" (click)="start()">Start game</button>
+    } @else if (isHost()) {
+      <p>Waiting for a second player...</p>
+    } @else {
+      <p>Waiting for the host to start the game...</p>
+    }
+
+  </div>
+
+</div>
