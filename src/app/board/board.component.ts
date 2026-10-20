@@ -44,6 +44,10 @@ import {
   trianglePath,
 } from './board.geometry';
 import { SoundService } from './sound.service';
+import { ActivatedRoute } from '@angular/router';
+import { GameService } from '../services/game.service';
+import { MoveResponse } from '../models/move-response';
+import { apiErrorMessage } from '../auth/api-error';
 
 interface RenderedChecker {
   id: number;
@@ -100,6 +104,7 @@ const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 export class BoardComponent implements OnInit, OnDestroy {
   readonly sound = inject(SoundService);
   private readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
+  
 
   // --- geometrija za template ---
   readonly W = WIDTH;
@@ -134,6 +139,11 @@ export class BoardComponent implements OnInit, OnDestroy {
   readonly status = signal('Klikni ili prevuci kružić.');
   private drag: DragState | null = null;
   private destroyed = false;
+  private readonly route = inject(ActivatedRoute);
+  private readonly gameService = inject(GameService);
+  readonly gameId = Number(this.route.snapshot.queryParamMap.get('gameId'));
+  readonly moves = signal<MoveResponse[]>([]);
+  readonly errorMessage = signal('');
 
   /** Pozicije svih kružića izračunate iz stanja table. */
   private readonly layout = computed(() => {
@@ -199,6 +209,18 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     void this.newGame();
+    this.loadMoves();
+  }
+
+  private loadMoves(): void {
+    if (!this.gameId) {
+      this.errorMessage.set('Nedostaje gameId u adresi.');
+      return;
+    }
+    this.gameService.getMoves(this.gameId).subscribe({
+      next: moves => this.moves.set(moves),
+      error: error => this.errorMessage.set(apiErrorMessage(error, 'Ne mogu da učitam poteze.'))
+    });
   }
 
   ngOnDestroy(): void {

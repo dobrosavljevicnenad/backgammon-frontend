@@ -305,6 +305,21 @@
   }
 </svg>
 
+@if (errorMessage()) {
+  <p class="error">{{ errorMessage() }}</p>
+}
+
+<section class="moves">
+  <h3>Potezi</h3>
+  <ul>
+    @for (m of moves(); track m.id) {
+      <li>{{ m.turnNumber }}.{{ m.moveNumber }}: {{ m.fromPosition }} → {{ m.toPosition }} (kocka {{ m.diceValue }})</li>
+    } @empty {
+      <li>Još nema poteza.</li>
+    }
+  </ul>
+</section>
+
 <p class="hint">
   Beli ide 24 → 1, crni 1 → 24. Za sada je „slobodan” režim: poštuje se smer i blokade (2+ protivnička kružića),
   pogađanje usamljenog kružića šalje ga na bar. Pravila sa kockicama dolaze u sledećem koraku.
