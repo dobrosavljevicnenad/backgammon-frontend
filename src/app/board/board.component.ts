@@ -303,7 +303,13 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   /** Prikazuje stanje na tabli bez animacije. */
   private renderGame(game: GameResponse): void {
+    const prev = this.game();
+    const changed = !prev
+      || prev.turnNumber !== game.turnNumber
+      || prev.status !== game.status
+      || JSON.stringify(prev.currentState) !== JSON.stringify(game.currentState);
     this.game.set(game);
+    if (prev && changed) this.loadMoves();
     this.state.set(toBoardState(game.currentState));
     this.overrides.set(new Map());
     const turnPlayer = this.players.find((p) => p.userId === game.currentTurnUserId);
