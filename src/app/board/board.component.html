@@ -4,6 +4,8 @@
     <div class="turn">
       @if (game()?.status === 'FINISHED') {
         Partija je završena
+      } @else if (game() && game()?.currentTurnUserId === null) {
+        Bacanje za početak
       } @else if (turnColor() === null) {
         Učitavanje...
       } @else if (turnColor() === myColor()) {

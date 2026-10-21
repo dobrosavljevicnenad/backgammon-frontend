@@ -11,4 +11,6 @@ export interface GameResponse {
   turnNumber: number;
   startedAt: string;
   finishedAt: string | null;
+  openingWhiteDie: number | null;
+  openingBlackDie: number | null;
 }
