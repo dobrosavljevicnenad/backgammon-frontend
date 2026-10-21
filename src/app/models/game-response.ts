@@ -1,3 +1,5 @@
+import { GameStateJson } from './game-state';
+
 export type GameStatus = 'IN_PROGRESS' | 'FINISHED' | 'ABANDONED';
 
 export interface GameResponse {
@@ -5,6 +7,7 @@ export interface GameResponse {
   roomId: number;
   status: GameStatus;
   currentTurnUserId: number | null;
+  currentState: GameStateJson;
   turnNumber: number;
   startedAt: string;
   finishedAt: string | null;

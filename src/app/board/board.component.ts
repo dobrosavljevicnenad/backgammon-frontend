@@ -48,6 +48,14 @@ import { ActivatedRoute } from '@angular/router';
 import { GameService } from '../services/game.service';
 import { MoveResponse } from '../models/move-response';
 import { apiErrorMessage } from '../auth/api-error';
+import { firstValueFrom, interval, Subscription } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { AuthService } from '../services/auth.service';
+import { GameSocketService } from '../services/game-socket.service';
+import { GameResponse } from '../models/game-response';
+import { GamePlayerResponse } from '../models/game-player-response';
+import { LegalMoveResponse } from '../models/legal-move-response';
+import { fromBackendPosition, toBackendPosition, toBoardState } from './board-state.adapter';
 
 interface RenderedChecker {
   id: number;
@@ -144,6 +152,24 @@ export class BoardComponent implements OnInit, OnDestroy {
   readonly gameId = Number(this.route.snapshot.queryParamMap.get('gameId'));
   readonly moves = signal<MoveResponse[]>([]);
   readonly errorMessage = signal('');
+  private readonly auth = inject(AuthService);
+  private readonly socket = inject(GameSocketService);
+  private readonly subscriptions = new Subscription();
+  private players: GamePlayerResponse[] = [];
+  readonly myColor = signal<Color | null>(null);
+  readonly turnColor = signal<Color | null>(null);
+  readonly game = signal<GameResponse | null>(null);
+  readonly legalMoves = signal<LegalMoveResponse[]>([]);
+  readonly canRoll = computed(() => {
+    const g = this.game();
+    return (
+      !!g &&
+      g.status === 'IN_PROGRESS' &&
+      this.turnColor() !== null &&
+      this.turnColor() === this.myColor() &&
+      g.currentState.dice.length === 0
+    );
+  });
 
   /** Pozicije svih kružića izračunate iz stanja table. */
   private readonly layout = computed(() => {
@@ -208,8 +234,73 @@ export class BoardComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    void this.newGame();
-    this.loadMoves();
+    if (this.gameId) {
+      this.loadGame();
+      this.loadMoves();
+    } else {
+      void this.newGame();
+    }
+  }
+
+  private loadGame(): void {
+    this.gameService.getPlayers(this.gameId).subscribe({
+      next: (players) => {
+        this.players = players;
+        const mine = players.find((p) => p.username === this.auth.username());
+        this.myColor.set(this.colorFromBackend(mine?.color));
+        this.refreshGame();
+      },
+      error: (error) => this.errorMessage.set(apiErrorMessage(error, 'Ne mogu da učitam igrače.')),
+    });
+    this.subscriptions.add(this.socket.watchGame(this.gameId).subscribe((game) => this.applyGame(game)));
+    this.subscriptions.add(interval(3000).subscribe(() => this.refreshGame()));
+  }
+
+  private refreshGame(): void {
+    this.gameService.getGame(this.gameId).subscribe({
+      next: (game) => this.applyGame(game),
+      error: (error) => this.errorMessage.set(apiErrorMessage(error, 'Ne mogu da učitam igru.')),
+    });
+  }
+
+  /** Primenjuje stanje sa servera na tablu. Ne dira tablu dok korisnik vuče kružić ili se animacija izvodi. */
+  private applyGame(game: GameResponse): void {
+    if (this.drag || this.busy()) return;
+    this.game.set(game);
+    this.state.set(toBoardState(game.currentState));
+    this.overrides.set(new Map());
+    const turnPlayer = this.players.find((p) => p.userId === game.currentTurnUserId);
+    this.turnColor.set(this.colorFromBackend(turnPlayer?.color));
+    const serverDice = game.currentState.dice;
+    this.dice.set(serverDice.length ? this.staticDice(this.turnColor() ?? 'white', serverDice) : []);
+
+    if (game.status !== 'IN_PROGRESS' || this.turnColor() === null || this.turnColor() !== this.myColor()) {
+      this.legalMoves.set([]);
+      return;
+    }
+    this.gameService.getLegalMoves(this.gameId).subscribe({
+      next: (moves) => {
+        if (this.game() === game) this.legalMoves.set(moves);
+      },
+      error: (error) => this.errorMessage.set(apiErrorMessage(error, 'Ne mogu da učitam moguće poteze.')),
+    });
+  }
+
+  private colorFromBackend(value: GamePlayerResponse['color'] | undefined): Color | null {
+    return value ? (value.toLowerCase() as Color) : null;
+  }
+
+  /** Kockice koje je server bacio, bez animacije. */
+  private staticDice(color: Color, values: number[]): Die[] {
+    const halfX = color === 'white' ? RIGHT_X : LEFT_X;
+    return values.map((value, i) => ({
+      color,
+      value,
+      x: halfX + this.HALF_W / 2 + (i ? 34 : -34),
+      y: MID_Y,
+      rot: 0,
+      lift: 0,
+    }));
   }
 
   private loadMoves(): void {
@@ -225,6 +316,7 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.subscriptions.unsubscribe();
   }
 
   colorOf(id: number): Color {
@@ -235,7 +327,21 @@ export class BoardComponent implements OnInit, OnDestroy {
   //  Pravila kretanja (za sada "slobodan" režim: smer + blokade, bez kockica)
   // ======================================================================
 
+  /** Odredišta koja je server prihvatio za trenutne kockice, bez duplikata. */
+  private serverTargets(id: number): Location[] {
+    const color = this.myColor();
+    const loc = locationOf(this.state(), id);
+    if (!color || !loc || this.colorOf(id) !== color) return [];
+    const from = toBackendPosition(loc);
+    const targets = new Map<number, Location>();
+    for (const m of this.legalMoves()) {
+      if (m.fromPosition === from) targets.set(m.toPosition, fromBackendPosition(m.toPosition, color));
+    }
+    return [...targets.values()];
+  }
+
   legalTargets(id: number): Location[] {
+    if (this.gameId) return this.serverTargets(id);
     const s = this.state();
     const color = this.colorOf(id);
     const loc = locationOf(s, id);
@@ -361,6 +467,7 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   /** Pomeri kružić na lokaciju (sa animacijom i izbacivanjem protivnika ako je "blot"). */
   async move(id: number, to: Location, opts: { start?: Pose; speed?: number } = {}): Promise<void> {
+    if (this.gameId) return this.sendMove(id, to);
     const start = opts.start ?? this.currentPose(id);
     const s = cloneState(this.state());
     const from = locationOf(s, id)!;
@@ -388,6 +495,40 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.sound.clack(1.2);
       const vp = this.currentPose(victim);
       await this.fly(victim, { ...vp, lift: 0.6 }, { arc: 0.25, speed: 1.1 });
+    }
+  }
+
+  /** Šalje potez serveru. Tabla se menja tek kad server potvrdi novo stanje. */
+  private async sendMove(id: number, to: Location): Promise<void> {
+    const from = locationOf(this.state(), id);
+    const legal = from
+      ? this.legalMoves().find(
+          (m) => m.fromPosition === toBackendPosition(from) && m.toPosition === toBackendPosition(to),
+        )
+      : undefined;
+    if (!legal) {
+      this.overrides.set(new Map());
+      this.refreshGame();
+      return;
+    }
+
+    this.busy.set(true);
+    try {
+      const game = await firstValueFrom(
+        this.gameService.makeMove(this.gameId, {
+          fromPosition: legal.fromPosition,
+          toPosition: legal.toPosition,
+          diceValue: legal.diceValue,
+        }),
+      );
+      this.errorMessage.set('');
+      this.busy.set(false);
+      this.applyGame(game);
+    } catch (error) {
+      this.busy.set(false);
+      this.overrides.set(new Map());
+      this.errorMessage.set(apiErrorMessage(error as HttpErrorResponse, 'Potez nije prihvaćen.'));
+      this.refreshGame();
     }
   }
 
@@ -628,12 +769,32 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   async onRollClick(): Promise<void> {
+    if (this.gameId) return this.serverRoll();
     if (this.busy()) return;
     this.busy.set(true);
     await this.rollDice('white');
     const [a, b] = this.dice().map((d) => d.value);
     this.status.set(a === b ? `Dupla! ${a} i ${b}` : `Bačeno: ${a} i ${b}`);
     this.busy.set(false);
+  }
+
+  /** Traži bacanje od servera i animira kockice koje je server izabrao. */
+  private async serverRoll(): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      const game = await firstValueFrom(this.gameService.roll(this.gameId));
+      const [a, b] = game.currentState.dice;
+      this.errorMessage.set('');
+      await this.rollDice(this.myColor() ?? 'white', [a, b]);
+      this.status.set(a === b ? `Dupla! ${a} i ${b}` : `Bačeno: ${a} i ${b}`);
+      this.busy.set(false);
+      this.applyGame(game);
+    } catch (error) {
+      this.busy.set(false);
+      this.errorMessage.set(apiErrorMessage(error as HttpErrorResponse, 'Bacanje nije uspelo.'));
+      this.refreshGame();
+    }
   }
 
   // ======================================================================

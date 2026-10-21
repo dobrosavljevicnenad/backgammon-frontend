@@ -1,9 +1,24 @@
 <div class="toolbar">
   <div class="status">{{ status() }}</div>
+  @if (gameId) {
+    <div class="turn">
+      @if (game()?.status === 'FINISHED') {
+        Partija je završena
+      } @else if (turnColor() === null) {
+        Učitavanje...
+      } @else if (turnColor() === myColor()) {
+        Ti si na potezu
+      } @else {
+        Potez protivnika
+      }
+    </div>
+  }
   <div class="actions">
-    <button type="button" (click)="newGame()" [disabled]="busy()">Nova partija</button>
-    <button type="button" (click)="playDemo()" [disabled]="busy()">Demo poteza</button>
-    <button type="button" (click)="onRollClick()" [disabled]="busy()">Baci kockice</button>
+    @if (!gameId) {
+      <button type="button" (click)="newGame()" [disabled]="busy()">Nova partija</button>
+      <button type="button" (click)="playDemo()" [disabled]="busy()">Demo poteza</button>
+    }
+    <button type="button" (click)="onRollClick()" [disabled]="busy() || (!!gameId && !canRoll())">Baci kockice</button>
     <button type="button" class="icon" (click)="sound.toggle()" [attr.aria-label]="sound.enabled() ? 'Isključi zvuk' : 'Uključi zvuk'">
       {{ sound.enabled() ? '🔊' : '🔇' }}
     </button>
@@ -320,7 +335,11 @@
   </ul>
 </section>
 
-<p class="hint">
-  Beli ide 24 → 1, crni 1 → 24. Za sada je „slobodan” režim: poštuje se smer i blokade (2+ protivnička kružića),
-  pogađanje usamljenog kružića šalje ga na bar. Pravila sa kockicama dolaze u sledećem koraku.
-</p>
+@if (gameId) {
+  <p class="hint">Partija je na serveru. Bacanje i potezi se proveravaju na backendu.</p>
+} @else {
+  <p class="hint">
+    Beli ide 24 → 1, crni 1 → 24. Za sada je „slobodan” režim: poštuje se smer i blokade (2+ protivnička kružića),
+    pogađanje usamljenog kružića šalje ga na bar. Pravila sa kockicama dolaze u sledećem koraku.
+  </p>
+}
