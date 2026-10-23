@@ -65,6 +65,33 @@ export class SoundService {
       t += 0.035 + Math.random() * 0.07;
     }
   }
+home(): void {
+  const ctx = this.audio();
+  if (!ctx) return;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = 'triangle';
+
+  osc.frequency.setValueAtTime(1000, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(
+    2200,
+    ctx.currentTime + 0.15
+  );
+
+  gain.gain.setValueAtTime(0.15, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(
+    0.0001,
+    ctx.currentTime + 0.2
+  );
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start();
+  osc.stop(ctx.currentTime + 0.2);
+}
 
   toggle(): void {
     this.enabled.update((v) => !v);

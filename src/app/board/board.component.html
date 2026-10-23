@@ -1,32 +1,142 @@
 <div class="toolbar">
-  <div class="status">{{ status() }}</div>
-  @if (gameId) {
-    <div class="turn">
-      @if (game()?.status === 'FINISHED') {
-        Partija je završena
-      } @else if (game() && game()?.currentTurnUserId === null) {
-        Bacanje za početak
-      } @else if (turnColor() === null) {
-        Učitavanje...
-      } @else if (turnColor() === myColor()) {
-        Ti si na potezu
-      } @else {
-        Potez protivnika
+
+  <div
+    class="player-card"
+    [class.active]="turnColor() === 'white'">
+
+    <div class="player-color">
+      ⚪ White
+    </div>
+
+    <div class="player-name">
+      {{ whitePlayer()?.username }}
+
+      @if (myColor() === 'white') {
+        <span>(You)</span>
       }
     </div>
-  }
+
+  </div>
+
   <div class="actions">
     @if (!gameId) {
-      <button type="button" (click)="newGame()" [disabled]="busy()">Nova partija</button>
-      <button type="button" (click)="playDemo()" [disabled]="busy()">Demo poteza</button>
+      <button
+        type="button"
+        (click)="newGame()"
+        [disabled]="busy()">
+        Nova partija
+      </button>
+
+      <button
+        type="button"
+        (click)="playDemo()"
+        [disabled]="busy()">
+        Demo poteza
+      </button>
     }
-    <button type="button" (click)="onRollClick()" [disabled]="busy() || (!!gameId && !canRoll())">Baci kockice</button>
-    <button type="button" class="icon" (click)="sound.toggle()" [attr.aria-label]="sound.enabled() ? 'Isključi zvuk' : 'Uključi zvuk'">
+
+    <button
+      type="button"
+      (click)="onRollClick()"
+      [disabled]="busy() || (!!gameId && !canRoll())">
+      Roll dice
+    </button>
+
+    <button
+      type="button"
+      class="exit-btn"
+      (click)="showExitModal.set(true)">
+      Exit Game
+    </button>
+
+    <button
+      type="button"
+      class="icon"
+      (click)="sound.toggle()">
       {{ sound.enabled() ? '🔊' : '🔇' }}
     </button>
   </div>
+
+  <div
+    class="player-card"
+    [class.active]="turnColor() === 'black'">
+
+    <div class="player-color">
+      ⚫ Black
+    </div>
+
+    <div class="player-name">
+      {{ blackPlayer()?.username }}
+
+      @if (myColor() === 'black') {
+        <span>(You)</span>
+      }
+    </div>
+
+  </div>
+
 </div>
 
+@if (showTurnPopup()) {
+  <div class="turn-popup">
+    {{ turnPopupMessage() }}
+  </div>
+}
+@if (showGameResult()) {
+
+  <div class="game-result-overlay">
+
+    <div class="game-result-modal">
+
+      <h1>
+        {{ gameResultMessage() }}
+      </h1>
+
+      <div class="modal-buttons">
+
+        <button
+          type="button"
+          (click)="viewLeaderboard()">
+          🏆 View Leaderboard
+        </button>
+
+        <button
+          type="button"
+          class="exit-btn"
+          (click)="exitGame()">
+          Exit Game
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+}
+
+@if (showExitModal()) {
+  <div class="modal-overlay">
+    <div class="modal-content">
+      <h3>Leave game?</h3>
+
+      <div class="modal-buttons">
+        <button
+          type="button"
+          (click)="exitGame()">
+          Leave
+        </button>
+
+        <button
+          type="button"
+          class="cancel-btn"
+          (click)="showExitModal.set(false)">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+}
 <svg
   #svg
   class="board"
@@ -283,6 +393,7 @@
   @for (c of rendered(); track c.id) {
     <g
       class="checker"
+      [class.highlighted]="c.highlighted"
       [class.flying]="c.flying"
       [class.movable]="!busy()"
       [style.transform]="'translate(' + c.x + 'px,' + c.y + 'px)'"
@@ -316,6 +427,12 @@
           @if (c.selected) {
             <circle class="sel-ring" [attr.r]="G.r + 4" />
           }
+          @if (c.highlighted && !c.selected) {
+  <circle
+    class="movable-ring"
+    [attr.r]="G.r + 6"
+  />
+}
         </g>
       }
     </g>
@@ -326,22 +443,3 @@
   <p class="error">{{ errorMessage() }}</p>
 }
 
-<section class="moves">
-  <h3>Potezi</h3>
-  <ul>
-    @for (m of moves(); track m.id) {
-      <li>{{ m.turnNumber }}.{{ m.moveNumber }}: {{ m.fromPosition }} → {{ m.toPosition }} (kocka {{ m.diceValue }})</li>
-    } @empty {
-      <li>Još nema poteza.</li>
-    }
-  </ul>
-</section>
-
-@if (gameId) {
-  <p class="hint">Partija je na serveru. Bacanje i potezi se proveravaju na backendu.</p>
-} @else {
-  <p class="hint">
-    Beli ide 24 → 1, crni 1 → 24. Za sada je „slobodan” režim: poštuje se smer i blokade (2+ protivnička kružića),
-    pogađanje usamljenog kružića šalje ga na bar. Pravila sa kockicama dolaze u sledećem koraku.
-  </p>
-}

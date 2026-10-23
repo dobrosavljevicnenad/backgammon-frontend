@@ -56,6 +56,7 @@ import { GameResponse } from '../models/game-response';
 import { GamePlayerResponse } from '../models/game-player-response';
 import { LegalMoveResponse } from '../models/legal-move-response';
 import { fromBackendPosition, toBackendPosition, toBoardState } from './board-state.adapter';
+import { Router } from '@angular/router';
 
 interface RenderedChecker {
   id: number;
@@ -67,6 +68,7 @@ interface RenderedChecker {
   flying: boolean;
   slab: boolean;
   selected: boolean;
+  highlighted: boolean;
 }
 
 interface Die {
@@ -160,6 +162,16 @@ export class BoardComponent implements OnInit, OnDestroy {
   readonly turnColor = signal<Color | null>(null);
   readonly game = signal<GameResponse | null>(null);
   readonly legalMoves = signal<LegalMoveResponse[]>([]);
+  readonly showTurnPopup = signal(false);
+  private lastTurnWasMine = false;
+  readonly turnPopupMessage = signal('');
+  readonly showGameResult = signal(false);
+readonly gameResultMessage = signal('');
+private gameResultShown = false;
+  private readonly router = inject(Router);
+  readonly showExitModal = signal(false);
+  private noMovesPopupShownForTurn = -1;
+
   readonly canRoll = computed(() => {
     const g = this.game();
     if (!g || g.status !== 'IN_PROGRESS') return false;
@@ -186,6 +198,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   });
 
   readonly rendered = computed<RenderedChecker[]>(() => {
+    const movable = this.movableCheckers();
     const layout = this.layout();
     const ov = this.overrides();
     const sel = this.selected();
@@ -205,6 +218,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         selected: sel === c.id,
         // kružići u letu se crtaju poslednji (iznad svega)
         order: o ? 1000 + l.order : l.order,
+        highlighted: movable.includes(c.id),
       });
     }
     return list.sort((a, b) => a.order - b.order);
@@ -214,7 +228,15 @@ export class BoardComponent implements OnInit, OnDestroy {
     const id = this.selected();
     return id === null ? [] : this.legalTargets(id);
   });
+ readonly movableCheckers = computed(() => {
 
+  return this.checkers
+    .filter(c =>
+      this.topOf(c.id) === c.id &&
+      this.legalTargets(c.id).length > 0
+    )
+    .map(c => c.id);
+});
   readonly targetPoints = computed(() =>
     this.targets()
       .filter((t): t is { kind: 'point'; index: number } => t.kind === 'point')
@@ -281,6 +303,13 @@ export class BoardComponent implements OnInit, OnDestroy {
       const b = locationOf(next, id);
       return a && b && !sameLocation(a, b);
     });
+    const movedToOff = moved.some(id => {
+  const before = locationOf(this.state(), id);
+  const after = locationOf(next, id);
+
+  return after?.kind === 'off' &&
+         before?.kind !== 'off';
+});
     const rolled = prev.currentState.dice.length === 0 && game.currentState.dice.length > 0;
     if (!moved.length && !rolled) {
       this.renderGame(game);
@@ -295,6 +324,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.state.set(next);
       for (const id of moved) this.setPose(id, starts.get(id)!);
       for (const id of moved) await this.fly(id, starts.get(id)!, { speed: 1.1 });
+   
     } finally {
       this.busy.set(false);
       this.renderGame(game);
@@ -309,11 +339,62 @@ export class BoardComponent implements OnInit, OnDestroy {
       || prev.status !== game.status
       || JSON.stringify(prev.currentState) !== JSON.stringify(game.currentState);
     this.game.set(game);
+ if (
+  game.status === 'FINISHED' &&
+  !this.gameResultShown
+) {
+
+  this.gameService.getPlayers(this.gameId).subscribe(players => {
+
+    this.players = players;
+
+    const me = players.find(
+      p => p.username === this.auth.username()
+    );
+
+    this.gameResultMessage.set(
+      me?.winner
+        ? '🏆 YOU WON!'
+        : '💀 YOU LOST!'
+    );
+
+    this.showGameResult.set(true);
+    this.gameResultShown = true;
+  });
+
+}
     if (prev && changed) this.loadMoves();
     this.state.set(toBoardState(game.currentState));
     this.overrides.set(new Map());
     const turnPlayer = this.players.find((p) => p.userId === game.currentTurnUserId);
     this.turnColor.set(this.colorFromBackend(turnPlayer?.color));
+const isMyTurn =
+  this.turnColor() !== null &&
+  this.turnColor() === this.myColor();
+
+if (
+  this.turnColor() !== null &&
+  isMyTurn !== this.lastTurnWasMine
+) {
+
+  this.turnPopupMessage.set(
+    isMyTurn
+      ? "🎲 It's your turn!"
+      : "⏳ Opponent's turn"
+  );
+
+  this.showTurnPopup.set(true);
+
+  setTimeout(() => {
+    this.showTurnPopup.set(false);
+  }, 2500);
+
+  if (isMyTurn) {
+    this.sound.clack(1.3);
+  }
+}
+
+this.lastTurnWasMine = isMyTurn;
     const openingDice = [game.openingWhiteDie, game.openingBlackDie].filter((d): d is number => d !== null);
     const shownDice = game.currentTurnUserId === null ? openingDice : game.currentState.dice;
     this.dice.set(shownDice.length ? this.staticDice(this.turnColor() ?? 'white', shownDice) : []);
@@ -322,12 +403,33 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.legalMoves.set([]);
       return;
     }
-    this.gameService.getLegalMoves(this.gameId).subscribe({
-      next: (moves) => {
-        if (this.game() === game) this.legalMoves.set(moves);
-      },
-      error: (error) => this.errorMessage.set(apiErrorMessage(error, 'Ne mogu da učitam moguće poteze.')),
-    });
+  this.gameService.getLegalMoves(this.gameId).subscribe({
+  next: (moves) => {
+    if (this.game() === game) {
+
+      this.legalMoves.set(moves);
+
+      if (
+        moves.length === 0 &&
+        game.currentState.dice.length > 0 &&
+        game.turnNumber !== this.noMovesPopupShownForTurn
+      ) {
+
+        this.noMovesPopupShownForTurn = game.turnNumber;
+
+        this.turnPopupMessage.set(
+          '🚫 No legal moves. Turn passes automatically.'
+        );
+
+        this.showTurnPopup.set(true);
+
+        setTimeout(() => {
+          this.showTurnPopup.set(false);
+        }, 2500);
+      }
+    }
+  }
+});
   }
 
   private colorFromBackend(value: GamePlayerResponse['color'] | undefined): Color | null {
@@ -336,17 +438,22 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   /** Kockice koje je server bacio, bez animacije. */
   private staticDice(color: Color, values: number[]): Die[] {
-    const halfX = color === 'white' ? RIGHT_X : LEFT_X;
-    return values.map((value, i) => ({
-      color,
-      value,
-      x: halfX + this.HALF_W / 2 + (i ? 34 : -34),
-      y: MID_Y,
-      rot: 0,
-      lift: 0,
-    }));
-  }
+  const halfX = color === 'white' ? RIGHT_X : LEFT_X;
 
+  const offsets =
+    values.length === 4
+      ? [-60, -20, 20, 60]
+      : [-34, 34];
+
+  return values.map((value, i) => ({
+    color,
+    value,
+    x: halfX + this.HALF_W / 2 + offsets[i],
+    y: MID_Y,
+    rot: 0,
+    lift: 0,
+  }));
+}
   private loadMoves(): void {
     if (!this.gameId) {
       this.errorMessage.set('Nedostaje gameId u adresi.');
@@ -534,6 +641,9 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.setPose(id, start);
     this.state.set(s);
     await this.fly(id, start, { speed: opts.speed });
+   if (to.kind === 'off') {
+  this.sound.home();
+}
 
     if (victim !== null) {
       this.sound.clack(1.2);
@@ -558,6 +668,7 @@ export class BoardComponent implements OnInit, OnDestroy {
 
     this.busy.set(true);
     try {
+      const bearingOff = to.kind === 'off';
       const game = await firstValueFrom(
         this.gameService.makeMove(this.gameId, {
           fromPosition: legal.fromPosition,
@@ -565,6 +676,10 @@ export class BoardComponent implements OnInit, OnDestroy {
           diceValue: legal.diceValue,
         }),
       );
+      if (bearingOff) {
+  this.sound.home();
+}
+
       this.errorMessage.set('');
       this.busy.set(false);
       this.renderGame(game);
@@ -606,7 +721,22 @@ export class BoardComponent implements OnInit, OnDestroy {
     }
 
     const id = this.topOf(clickedId);
-    if (id === null || this.overrides().has(id)) return;
+
+if (id === null || this.overrides().has(id)) {
+  return;
+}
+
+if (this.gameId) {
+  const myColor = this.myColor();
+
+  if (!myColor || this.colorOf(id) !== myColor) {
+    return;
+  }
+
+  if (this.turnColor() !== myColor) {
+    return;
+  }
+}
     const pose = this.currentPose(id);
     this.drag = {
       id,
@@ -689,10 +819,17 @@ export class BoardComponent implements OnInit, OnDestroy {
     const fromX = color === 'white' ? DIVIDER_X - 10 : LEFT_X + 10;
     const sign = color === 'white' ? -1 : 1;
     const single = final.length === 1;
-    const ends = final.map((_, i) => ({
-      x: halfX + this.HALF_W / 2 + (single ? 0 : i ? 34 : -34),
-      y: MID_Y - 4 + Math.random() * 8,
-    }));
+   const offsets =
+  final.length === 4
+    ? [-60, -20, 20, 60]
+    : single
+      ? [0]
+      : [-34, 34];
+
+const ends = final.map((_, i) => ({
+  x: halfX + this.HALF_W / 2 + offsets[i],
+  y: MID_Y - 4 + Math.random() * 8,
+}));
     const starts = ends.map((_, i) => ({ x: fromX, y: MID_Y + (i ? 70 : -70) * Math.random() }));
     const spins = ends.map(() => sign * (540 + Math.random() * 360));
     const endRot = ends.map(() => -12 + Math.random() * 24);
@@ -822,6 +959,12 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.status.set(a === b ? `Dupla! ${a} i ${b}` : `Bačeno: ${a} i ${b}`);
     this.busy.set(false);
   }
+exitGame(): void {
+  void this.router.navigate(['/lobby']);
+}
+viewLeaderboard(): void {
+  void this.router.navigate(['/leaderboard']);
+}
 
   /** Traži bacanje od servera i animira kockice koje je server izabrao. */
   private async serverRoll(): Promise<void> {
@@ -858,6 +1001,14 @@ export class BoardComponent implements OnInit, OnDestroy {
       rect(TRAY_X, TOP_Y, G.trayW, G.playH),
     ].join(' ');
   }
+  whitePlayer(): GamePlayerResponse | undefined {
+  return this.players.find(p => p.color === 'WHITE');
+}
+
+blackPlayer(): GamePlayerResponse | undefined {
+  return this.players.find(p => p.color === 'BLACK');
+}
+
 
   pipX(v: number): number {
     return v * 11;

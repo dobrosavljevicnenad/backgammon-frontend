@@ -5,11 +5,13 @@
     <div class="username">{{ username() }}</div>
   </div>
 
-  <button class="logout-btn" type="button" (click)="logout()">Logout</button>
+  <button class="logout-btn" type="button" (click)="logout()">
+    Logout
+  </button>
 
   <h1 class="title">LOBBY</h1>
 
-  <button type="button" class="leaderboard-btn" (click)="openLeaderboard()">Leaderboard</button>
+
 
   <div class="lobby-card">
 
@@ -18,20 +20,61 @@
     }
 
     @if (currentRoom(); as room) {
-      <div>
+
+      <div class="active-room">
+
         <div class="label">Your active room</div>
-        <p>{{ room.name }} ({{ room.status }}, {{ room.playerCount }}/2)</p>
-        <button type="button" (click)="openCurrentRoom(room)">
+
+        <p>
+          {{ room.name }} ({{ room.status }}, {{ room.playerCount }}/2)
+        </p>
+
+        <button
+          type="button"
+          (click)="openCurrentRoom(room)">
           {{ room.status === 'PLAYING' ? 'Go to game' : 'Open waiting room' }}
         </button>
-        @if (room.status === 'PLAYING') {
-          <button type="button" class="cancel-btn" [disabled]="busy()" (click)="finishGame(room)">
-            End game
-          </button>
-        }
+
       </div>
+
     } @else {
-      <form (ngSubmit)="createRoom()">
+
+      <div class="lobby-actions">
+
+        <button
+          type="button"
+          class="action-btn"
+          (click)="showCreateModal = true">
+          Create Room
+        </button>
+
+        <button
+          type="button"
+          class="action-btn"
+          (click)="showJoinModal = true">
+          Join Room
+        </button>
+         <button
+    type="button"
+    class="action-btn"
+    (click)="openLeaderboard()">
+    Leaderboard
+  </button>
+
+      </div>
+
+    }
+
+  </div>
+
+  @if (showCreateModal) {
+
+    <div class="modal-overlay">
+
+      <div class="modal-content">
+
+        <h3>Create Room</h3>
+
         <input
           type="text"
           placeholder="Room name"
@@ -39,23 +82,76 @@
           [(ngModel)]="roomName"
           name="roomName"
         />
-        <button type="submit" [disabled]="busy()">Create lobby</button>
-      </form>
-    }
 
-    <div class="label">Waiting rooms</div>
+        <div class="modal-buttons">
 
-    @for (room of waitingRooms(); track room.id) {
-      <div>
-        {{ room.name }} ({{ room.playerCount }}/2)
-        <button type="button" [disabled]="busy() || !canJoin(room)" (click)="joinRoom(room)">
-          Join
-        </button>
+          <button
+            type="button"
+            (click)="createRoom()">
+            Create
+          </button>
+
+          <button
+            type="button"
+            class="cancel-btn"
+            (click)="showCreateModal = false">
+            Cancel
+          </button>
+
+        </div>
+
       </div>
-    } @empty {
-      <p>No waiting rooms.</p>
-    }
 
-  </div>
+    </div>
+
+  }
+
+  @if (showJoinModal) {
+
+    <div class="modal-overlay">
+
+      <div class="modal-content">
+
+        <h3>Available Rooms</h3>
+
+        @for (room of waitingRooms(); track room.id) {
+
+          <div class="room-item">
+
+            <span>
+              {{ room.name }} ({{ room.playerCount }}/2)
+            </span>
+
+            <button
+              type="button"
+              [disabled]="busy() || !canJoin(room)"
+              (click)="joinRoom(room)">
+              Join
+            </button>
+
+          </div>
+
+        } @empty {
+
+          <p>No waiting rooms available.</p>
+
+        }
+
+        <div class="modal-buttons">
+
+          <button
+            type="button"
+            class="cancel-btn"
+            (click)="showJoinModal = false">
+            Close
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  }
 
 </div>

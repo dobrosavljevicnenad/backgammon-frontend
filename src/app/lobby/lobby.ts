@@ -33,8 +33,10 @@ export class Lobby implements OnInit {
   readonly waitingRooms = signal<RoomResponse[]>([]);
   readonly errorMessage = signal('');
   readonly busy = signal(false);
-
   roomName = '';
+
+ showCreateModal = false;
+showJoinModal = false;
 
   ngOnInit(): void {
     this.refresh();
