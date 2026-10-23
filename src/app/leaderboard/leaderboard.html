@@ -1,0 +1,53 @@
+<div class="leaderboard-page">
+
+  <button type="button" class="back-btn" (click)="back()">Back to lobby</button>
+
+  <h1 class="title">LEADERBOARD</h1>
+
+  <div class="leaderboard-card">
+
+    <div class="my-rank">
+      <div class="label">Your rank</div>
+      @if (me(); as entry) {
+        <div class="my-rank-value">#{{ entry.rank }} · {{ entry.rating }}</div>
+      } @else {
+        <div class="my-rank-value muted">Not ranked yet</div>
+      }
+    </div>
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of entries(); track entry.rank) {
+          <tr [class.me]="isCurrentUser(entry)">
+            <td>{{ entry.rank }}</td>
+            <td>{{ entry.username }}</td>
+            <td>{{ entry.rating }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="muted">No players yet.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <div class="pager">
+      <button type="button" [disabled]="!hasPrevious()" (click)="loadPage(page() - 1)">Prev</button>
+      <span class="label">{{ page() + 1 }} / {{ totalPages() || 1 }}</span>
+      <button type="button" [disabled]="!hasNext()" (click)="loadPage(page() + 1)">Next</button>
+    </div>
+
+  </div>
+
+</div>

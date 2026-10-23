@@ -92,6 +92,10 @@ export class Lobby implements OnInit {
     return this.currentRoom() === null && room.playerCount < MAX_PLAYERS && room.status === 'WAITING';
   }
 
+  openLeaderboard(): void {
+    void this.router.navigate(['/leaderboard']);
+  }
+
   logout(): void {
     this.authService.logout();
     void this.router.navigate(['/login']);
