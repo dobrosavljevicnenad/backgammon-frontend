@@ -27,6 +27,7 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
 
@@ -323,6 +324,57 @@ button {
   gap: 12px;
 
   margin-top: 20px;
+}
+
+.forfeit-modal {
+  box-sizing: border-box;
+  min-width: 0;
+  width: min(480px, calc(100% - 32px));
+  color: #2a1608;
+
+  &::backdrop {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  p {
+    line-height: 1.5;
+  }
+}
+
+.modal-error {
+  color: #721c1c;
+  font-weight: 600;
+}
+
+.loss-statistics {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+
+  dd {
+    margin: 4px 0 0;
+    font-size: 24px;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 900px) {
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .actions {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .game-result-modal {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: calc(100% - 32px);
+    padding: 24px;
+  }
 }
 .checker.highlighted {
   animation: movable-glow 1.2s infinite;

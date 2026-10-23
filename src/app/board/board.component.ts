@@ -55,6 +55,7 @@ import { GameSocketService } from '../services/game-socket.service';
 import { GameResponse } from '../models/game-response';
 import { GamePlayerResponse } from '../models/game-player-response';
 import { LegalMoveResponse } from '../models/legal-move-response';
+import { UserResponse } from '../models/user-response';
 import { fromBackendPosition, toBackendPosition, toBoardState } from './board-state.adapter';
 import { Router } from '@angular/router';
 
@@ -114,6 +115,7 @@ const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 export class BoardComponent implements OnInit, OnDestroy {
   readonly sound = inject(SoundService);
   private readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
+  private readonly forfeitDialog = viewChild.required<ElementRef<HTMLDialogElement>>('forfeitDialog');
   
 
   // --- geometrija za template ---
@@ -166,11 +168,26 @@ export class BoardComponent implements OnInit, OnDestroy {
   private lastTurnWasMine = false;
   readonly turnPopupMessage = signal('');
   readonly showGameResult = signal(false);
-readonly gameResultMessage = signal('');
-private gameResultShown = false;
+  readonly gameResultMessage = signal('');
+  private gameResultShown = false;
+  readonly resultLoading = signal(false);
+  readonly resultError = signal('');
+  readonly lossStatistics = signal<Pick<UserResponse, 'rating' | 'losses'> | null>(null);
+  readonly statisticsLoading = signal(false);
+  readonly statisticsError = signal('');
   private readonly router = inject(Router);
   readonly showExitModal = signal(false);
+  readonly showForfeitModal = signal(false);
+  readonly forfeiting = signal(false);
+  readonly forfeitError = signal('');
   private noMovesPopupShownForTurn = -1;
+
+  readonly canForfeit = computed(() =>
+    Number.isInteger(this.gameId) &&
+    this.gameId > 0 &&
+    this.game()?.status === 'IN_PROGRESS' &&
+    this.myColor() !== null,
+  );
 
   readonly canRoll = computed(() => {
     const g = this.game();
@@ -286,7 +303,14 @@ private gameResultShown = false;
 
   /** Primenjuje stanje sa servera. Protivnikove poteze i bacanje animira pre prikaza. */
   private applyGame(game: GameResponse, animate = true): void {
-    if (this.drag || this.busy()) return;
+    const current = this.game();
+    if (current && current.status !== 'IN_PROGRESS' && game.status === 'IN_PROGRESS') return;
+    if (game.status !== 'IN_PROGRESS' &&
+        (this.drag || this.busy() || this.forfeiting() || this.showForfeitModal())) {
+      this.renderGame(game);
+      return;
+    }
+    if (this.drag || this.busy() || this.forfeiting()) return;
     if (animate && this.game()) {
       void this.animateServerUpdate(game);
       return;
@@ -320,6 +344,7 @@ private gameResultShown = false;
     this.busy.set(true);
     try {
       if (rolled) await this.rollDice(this.colorFromBackend(turnPlayer?.color) ?? 'white', game.currentState.dice);
+      if (this.game() !== prev) return;
       const starts = new Map(moved.map((id) => [id, this.currentPose(id)] as const));
       this.state.set(next);
       for (const id of moved) this.setPose(id, starts.get(id)!);
@@ -333,36 +358,25 @@ private gameResultShown = false;
 
   /** Prikazuje stanje na tabli bez animacije. */
   private renderGame(game: GameResponse): void {
+    if (this.destroyed) return;
     const prev = this.game();
+    if (prev && prev.status !== 'IN_PROGRESS' && game.status === 'IN_PROGRESS') return;
     const changed = !prev
       || prev.turnNumber !== game.turnNumber
       || prev.status !== game.status
       || JSON.stringify(prev.currentState) !== JSON.stringify(game.currentState);
     this.game.set(game);
- if (
-  game.status === 'FINISHED' &&
-  !this.gameResultShown
-) {
-
-  this.gameService.getPlayers(this.gameId).subscribe(players => {
-
-    this.players = players;
-
-    const me = players.find(
-      p => p.username === this.auth.username()
-    );
-
-    this.gameResultMessage.set(
-      me?.winner
-        ? '🏆 YOU WON!'
-        : '💀 YOU LOST!'
-    );
-
-    this.showGameResult.set(true);
-    this.gameResultShown = true;
-  });
-
-}
+    if (game.status !== 'IN_PROGRESS') {
+      this.closeForfeitModal();
+      this.showExitModal.set(false);
+      this.selected.set(null);
+      this.drag = null;
+    }
+    if (game.status === 'FINISHED' && !this.gameResultShown) {
+      this.gameResultShown = true;
+      this.showGameResult.set(true);
+      this.loadGameResult();
+    }
     if (prev && changed) this.loadMoves();
     this.state.set(toBoardState(game.currentState));
     this.overrides.set(new Map());
@@ -430,6 +444,84 @@ this.lastTurnWasMine = isMyTurn;
     }
   }
 });
+  }
+
+  loadGameResult(): void {
+    if (this.resultLoading() || this.game()?.status !== 'FINISHED') return;
+    this.resultLoading.set(true);
+    this.resultError.set('');
+    this.subscriptions.add(this.gameService.getPlayers(this.gameId).subscribe({
+      next: (players) => {
+        this.players = players;
+        const me = players.find((p) => p.username === this.auth.username());
+        this.gameResultMessage.set(me ? (me.winner ? '🏆 YOU WON!' : '💀 YOU LOST!') : 'Game finished');
+        this.resultLoading.set(false);
+        if (me && !me.winner) this.loadLossStatistics();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.resultLoading.set(false);
+        this.resultError.set(apiErrorMessage(error, 'Could not load the game result.'));
+      },
+    }));
+  }
+
+  loadLossStatistics(): void {
+    const me = this.players.find((p) => p.username === this.auth.username());
+    if (!me || me.winner || this.forfeiting() || this.resultLoading() || this.resultError() ||
+        this.statisticsLoading() || this.lossStatistics() || this.game()?.status !== 'FINISHED') return;
+    this.statisticsLoading.set(true);
+    this.statisticsError.set('');
+    this.subscriptions.add(this.auth.me().subscribe({
+      next: (user) => {
+        this.lossStatistics.set({ rating: user.rating, losses: user.losses });
+        this.statisticsLoading.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.statisticsLoading.set(false);
+        this.statisticsError.set(apiErrorMessage(error, 'Could not load your updated statistics.'));
+      },
+    }));
+  }
+
+  openForfeitModal(): void {
+    if (!this.canForfeit() || this.busy() || this.forfeiting() || this.drag) return;
+    this.forfeitError.set('');
+    this.showExitModal.set(false);
+    this.showForfeitModal.set(true);
+    this.forfeitDialog().nativeElement.showModal();
+  }
+
+  cancelForfeit(event?: Event): void {
+    event?.preventDefault();
+    if (!this.forfeiting()) this.closeForfeitModal();
+  }
+
+  private closeForfeitModal(): void {
+    if (!this.showForfeitModal()) return;
+    this.showForfeitModal.set(false);
+    this.forfeitDialog().nativeElement.close();
+  }
+
+  confirmForfeit(): void {
+    if (!this.showForfeitModal() || !this.canForfeit() || this.busy() || this.forfeiting()) return;
+    this.forfeiting.set(true);
+    this.forfeitError.set('');
+    this.subscriptions.add(this.gameService.finishGame(this.gameId).subscribe({
+      next: (game) => {
+        this.forfeiting.set(false);
+        this.renderGame(game);
+        this.loadLossStatistics();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.forfeiting.set(false);
+        if (this.game()?.status === 'IN_PROGRESS') {
+          this.forfeitError.set(apiErrorMessage(error, 'Could not forfeit the game. Please try again.'));
+          this.refreshGame();
+        } else {
+          this.loadLossStatistics();
+        }
+      },
+    }));
   }
 
   private colorFromBackend(value: GamePlayerResponse['color'] | undefined): Color | null {
@@ -654,6 +746,8 @@ this.lastTurnWasMine = isMyTurn;
 
   /** Šalje potez serveru. Tabla se menja tek kad server potvrdi novo stanje. */
   private async sendMove(id: number, to: Location): Promise<void> {
+    if (this.busy() || this.forfeiting() || this.showForfeitModal() ||
+        this.game()?.status !== 'IN_PROGRESS') return;
     const from = locationOf(this.state(), id);
     const legal = from
       ? this.legalMoves().find(
@@ -706,7 +800,8 @@ this.lastTurnWasMine = isMyTurn;
 
   onCheckerDown(ev: PointerEvent, clickedId: number): void {
     ev.stopPropagation();
-    if (this.busy() || ev.button !== 0) return;
+    if (this.busy() || this.forfeiting() || this.showForfeitModal() || ev.button !== 0 ||
+        (this.gameId && this.game()?.status !== 'IN_PROGRESS')) return;
     const p = this.toSvg(ev);
 
     // ako je nešto selektovano a kliknuto je na kružić u ciljnom polju -> potez
@@ -799,7 +894,7 @@ if (this.gameId) {
   }
 
   onBoardDown(ev: PointerEvent): void {
-    if (this.busy()) return;
+    if (this.busy() || this.forfeiting() || this.showForfeitModal()) return;
     const sel = this.selected();
     if (sel === null) return;
     const p = this.toSvg(ev);
@@ -960,6 +1055,7 @@ const ends = final.map((_, i) => ({
     this.busy.set(false);
   }
 exitGame(): void {
+  if (this.forfeiting()) return;
   void this.router.navigate(['/lobby']);
 }
 viewLeaderboard(): void {
@@ -968,7 +1064,7 @@ viewLeaderboard(): void {
 
   /** Traži bacanje od servera i animira kockice koje je server izabrao. */
   private async serverRoll(): Promise<void> {
-    if (this.busy()) return;
+    if (this.busy() || this.forfeiting() || this.showForfeitModal() || !this.canRoll()) return;
     this.busy.set(true);
     try {
       const game = await firstValueFrom(this.gameService.roll(this.gameId));
