@@ -369,3 +369,55 @@ button:active {
   font-size: 16px;
   font-weight: 500;
 }
+
+  @media (max-width: 640px) {
+    .lobby-page {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 72px 16px 24px;
+    }
+    .user-info {
+      top: 12px;
+      left: 12px;
+      padding: 8px 12px;
+    }
+    .username {
+      font-size: 16px;
+    }
+    .logout-btn {
+      top: 12px;
+      right: 12px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    .title {
+      font-size: 40px;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+    }
+    .lobby-card {
+      width: 100%;
+      max-width: 420px;
+      box-sizing: border-box;
+      padding: 20px;
+    }
+    .lobby-card h2 {
+      font-size: 30px;
+    }
+    .user-bar {
+      width: 100%;
+    }
+    .modal-content {
+      width: calc(100vw - 32px);
+      max-width: 500px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .modal-content h3 {
+      font-size: 22px;
+    }
+    .room-item {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  }

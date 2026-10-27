@@ -198,3 +198,36 @@ button:disabled {
     transform: translateY(0);
   }
 }
+
+@media (max-width: 640px) {
+  .leaderboard-page {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 72px 12px 24px;
+  }
+  .back-btn {
+    top: 12px;
+    left: 12px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  .title {
+    font-size: 34px;
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+  .leaderboard-card {
+    width: 100%;
+    max-width: 480px;
+    padding: 18px;
+    box-sizing: border-box;
+  }
+  th,
+  td {
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+  .pager button {
+    padding: 10px 14px;
+  }
+}

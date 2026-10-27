@@ -168,3 +168,29 @@ button:disabled {
   text-align: center;
   font-size: 14px;
 }
+
+@media (max-width: 640px) {
+  .auth-page {
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 16px;
+    box-sizing: border-box;
+  }
+  .title {
+    position: static;
+    top: auto;
+    margin: 0;
+    font-size: 40px;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 520px;
+    padding: 28px 20px;
+    box-sizing: border-box;
+  }
+  .auth-card h2 {
+    font-size: 26px;
+  }
+}
