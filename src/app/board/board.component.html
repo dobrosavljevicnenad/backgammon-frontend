@@ -38,16 +38,27 @@
     <button
       type="button"
       (click)="onRollClick()"
-      [disabled]="busy() || (!!gameId && !canRoll())">
+      [disabled]="busy() || forfeiting() || (!!gameId && !canRoll())">
       Roll dice
     </button>
 
     <button
       type="button"
       class="exit-btn"
+      [disabled]="forfeiting()"
       (click)="showExitModal.set(true)">
       Exit Game
     </button>
+
+    @if (canForfeit()) {
+      <button
+        type="button"
+        class="exit-btn"
+        [disabled]="busy() || forfeiting()"
+        (click)="openForfeitModal()">
+        Forfeit Game
+      </button>
+    }
 
     <button
       type="button"
@@ -86,11 +97,32 @@
 
   <div class="game-result-overlay">
 
-    <div class="game-result-modal">
+    <div class="game-result-modal" role="dialog" aria-modal="true" aria-labelledby="game-result-title">
 
-      <h1>
-        {{ gameResultMessage() }}
+      <h1 id="game-result-title">
+        {{ gameResultMessage() || 'Game finished' }}
       </h1>
+
+      @if (resultLoading()) {
+        <p role="status">Loading result...</p>
+      }
+      @if (resultError()) {
+        <p class="modal-error" role="alert">{{ resultError() }}</p>
+        <button type="button" (click)="loadGameResult()">Retry result</button>
+      }
+      @if (statisticsLoading()) {
+        <p role="status">Loading updated statistics...</p>
+      }
+      @if (lossStatistics(); as statistics) {
+        <dl class="loss-statistics">
+          <div><dt>Rating</dt><dd>{{ statistics.rating }}</dd></div>
+          <div><dt>Losses</dt><dd>{{ statistics.losses }}</dd></div>
+        </dl>
+      }
+      @if (statisticsError()) {
+        <p class="modal-error" role="alert">{{ statisticsError() }}</p>
+        <button type="button" (click)="loadLossStatistics()">Retry statistics</button>
+      }
 
       <div class="modal-buttons">
 
@@ -103,6 +135,7 @@
         <button
           type="button"
           class="exit-btn"
+          [disabled]="forfeiting()"
           (click)="exitGame()">
           Exit Game
         </button>
@@ -114,6 +147,31 @@
   </div>
 
 }
+
+<dialog
+  #forfeitDialog
+  class="modal-content forfeit-modal"
+  aria-labelledby="forfeit-title"
+  aria-describedby="forfeit-description"
+  [attr.aria-busy]="forfeiting()"
+  (cancel)="cancelForfeit($event)">
+  <h3 id="forfeit-title">Forfeit game?</h3>
+  <p id="forfeit-description">
+    Are you sure you want to forfeit this game? Your opponent will win,
+    your rating will decrease, and a loss will be added to your record.
+  </p>
+  @if (forfeitError()) {
+    <p class="modal-error" role="alert">{{ forfeitError() }}</p>
+  }
+  <div class="modal-buttons">
+    <button type="button" autofocus [disabled]="forfeiting()" (click)="cancelForfeit()">
+      Cancel
+    </button>
+    <button type="button" class="exit-btn" [disabled]="busy() || forfeiting()" (click)="confirmForfeit()">
+      {{ forfeiting() ? 'Forfeiting...' : 'Forfeit Game' }}
+    </button>
+  </div>
+</dialog>
 
 @if (showExitModal()) {
   <div class="modal-overlay">
@@ -442,4 +500,3 @@
 @if (errorMessage()) {
   <p class="error">{{ errorMessage() }}</p>
 }
-

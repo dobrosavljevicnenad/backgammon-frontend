@@ -2,6 +2,18 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.37.
 
+## Leaving or forfeiting a game
+
+During an active online game, participants can select **Forfeit Game** beside
+**Exit Game**. Canceling the confirmation leaves the game unchanged. Confirming
+calls `POST /api/games/{gameId}/finish`: the backend awards the opponent the win,
+updates rating and losses, and closes the room. The loss result window displays
+the updated rating and total losses from `GET /auth/me`. Failed result or
+statistics reads can be retried without submitting another forfeit.
+
+**Exit Game** only returns to the lobby; it does not forfeit. Forfeit Game is not
+available to spectators, on the local/demo board, or after the game has ended.
+
 ## Development server
 
 To start a local development server, run:
